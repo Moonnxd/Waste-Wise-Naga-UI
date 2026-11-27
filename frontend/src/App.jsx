@@ -13,12 +13,14 @@ import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import { TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { submitCollectionRequest } from "./lib/api";
 
 const truckRows = [
   { id: "NCG-214", street: "Magsaysay Ave", distance: "0.8 km", eta: "6 min", state: "Collecting now", space: "2.9 m³", best: true },
   { id: "NCG-308", street: "Almeda Hwy", distance: "1.6 km", eta: "12 min", state: "En route", space: "4.1 m³", best: false },
   { id: "NCG-117", street: "Panganiban Dr", distance: "2.1 km", eta: "18 min", state: "Available", space: "5.4 m³", best: false },
 ];
+
 
 const navItems = [
   { id: "home", label: "Home", Icon: Home },
@@ -147,25 +149,39 @@ function TruckDetailScreen({ onNavigate, onMessage }) {
   </div>;
 }
 
-function ScanScreen({ onNavigate }) {
-  return <div className="scan-screen"><div className="scan-top"><button className="scan-close" aria-label="Close scanner" onClick={() => onNavigate("home")}><X size={19} /></button><strong>Scan waste</strong><button className="scan-close" aria-label="Toggle flash"><Sparkles size={17} /></button></div>
+function ScanScreen({ onNavigate, onPhotoSelected }) {
+  return <div className="scan-screen">
+    <input
+      id="resident-photo-input"
+      type="file"
+      accept="image/*"
+      capture="environment"
+      hidden
+      onChange={(event) => {
+        const file = event.target.files?.[0];
+        if (file) onPhotoSelected(file);
+        event.target.value = "";
+      }}
+    />
+    <div className="scan-top"><button className="scan-close" aria-label="Close scanner" onClick={() => onNavigate("home")}><X size={19} /></button><strong>Scan waste</strong><button className="scan-close" aria-label="Toggle flash"><Sparkles size={17} /></button></div>
     <div className="scan-view"><img src="/images/camera-still.png" alt="Waste bags, cardboard and a green collection bin" /><div className="scan-guidance"><ScanLine size={15} />Fit the entire waste pile inside the frame</div></div>
-    <div className="scan-controls"><div className="scan-hint"><Crosshair size={15} />Stand 1–2 meters away</div><div className="camera-row"><button className="gallery-button" aria-label="Choose a photo"><img src="/images/waste-photo.png" alt="" /></button><button className="shutter" aria-label="Capture waste" onClick={() => onNavigate("analysis")}><span /></button><button className="scan-close refresh-button" aria-label="Retake photo"><RefreshCw size={18} /></button></div><p className="scan-caption">Keep the items in good light</p></div>
+    <div className="scan-controls"><div className="scan-hint"><Crosshair size={15} />Stand 1–2 meters away</div><div className="camera-row"><button className="gallery-button" aria-label="Choose a photo" onClick={() => document.getElementById("resident-photo-input")?.click()}><img src="/images/waste-photo.png" alt="" /></button><button className="shutter" aria-label="Capture waste" onClick={() => document.getElementById("resident-photo-input")?.click()}><span /></button><button className="scan-close refresh-button" aria-label="Retake photo"><RefreshCw size={18} /></button></div><p className="scan-caption">Keep the items in good light</p></div>
   </div>;
 }
 
-function AnalysisScreen({ onNavigate }) {
+function AnalysisScreen({ onNavigate, imagePreview, submitState, onSubmit }) {
   return <div className="screen-content analysis-screen"><AppHeader title="Waste analysis" subtitle="Scan complete • 94% confidence" onBack={() => onNavigate("scan")} onAction={() => onNavigate("scan")} />
-    <Card className="analysis-card"><img src="/images/waste-photo.png" alt="Scanned bin, bagged waste and cardboard" /><div className="analysis-copy"><Badge variant="secondary"><Sparkles size={13} />Mixed dry waste</Badge><small>Estimated volume</small><strong className="volume">0.42 m³</strong><span>≈ 4 standard bags • 31 kg</span><Badge variant="warning" className="cardboard-badge"><i className="dot dot-amber" />Cardboard 62%</Badge></div></Card>
+    <Card className="analysis-card"><img src={imagePreview || "/images/waste-photo.png"} alt="Resident submitted waste" /><div className="analysis-copy"><Badge variant="secondary"><Sparkles size={13} />Mixed dry waste</Badge><small>Estimated volume</small><strong className="volume">0.42 m³</strong><span>≈ 4 standard bags • 31 kg</span><Badge variant="warning" className="cardboard-badge"><i className="dot dot-amber" />Cardboard 62%</Badge></div></Card>
     <Card className="capacity-match"><div className="capacity-head"><span className="success-icon"><Check size={18} /></span><span><strong>Selected bin can accommodate it</strong><small>Zone 3 Materials Hub • 180 m away</small></span><strong className="percent">53%</strong></div><div className="capacity-bar"><span /></div><div className="capacity-foot"><small>18% current</small><small><b>53% after deposit</b></small></div></Card>
     <section className="matches-section"><ScreenTitle title="Available truck matches"><button className="text-link" onClick={() => onNavigate("truck")}>Why these?</button></ScreenTitle><div className="match-list">{truckRows.slice(0, 2).map((truck) => <button key={truck.id} className={`match-row ${truck.best ? "recommended" : ""}`} onClick={() => onNavigate("truck")}><span className="truck-icon"><Truck size={18} /></span><span className="match-copy"><strong>{truck.id}{truck.best && <Badge>Best match</Badge>}</strong><small>{truck.best ? "Zone 3 route • 2.9 m³ space" : "Almeda route • 4.1 m³ space"}</small></span><span className="match-eta"><b>{truck.eta}</b><small>ETA</small></span></button>)}</div></section>
     <div className="tip-card amber-tip"><Recycle size={16} /><span>Flatten cardboard and keep it separate from residual waste.</span></div>
-    <Button className="request-button" onClick={() => onNavigate("confirmed")}><Send size={17} />Request pickup with NCG-214</Button>
+    <Button className="request-button" onClick={onSubmit} disabled={submitState.loading}><Send size={17} />{submitState.loading ? "Sending photo..." : "Request pickup with NCG-214"}</Button>
+    {submitState.error && <p role="alert" className="submit-error">{submitState.error}</p>}
   </div>;
 }
 
-function ConfirmationScreen({ onNavigate, pickupActive }) {
-  return <div className="screen-content confirm-screen"><div className="confirm-intro"><span className="confirm-check"><Check size={23} /></span><h1>Pickup request confirmed</h1><p>Truck NCG-214 has accepted your dispatch request.</p><Badge className="request-id">REQUEST #WN-0930-1842</Badge></div>
+function ConfirmationScreen({ onNavigate, pickupActive, submittedRequest }) {
+  return <div className="screen-content confirm-screen"><div className="confirm-intro"><span className="confirm-check"><Check size={23} /></span><h1>Pickup request confirmed</h1><p>Truck NCG-214 has accepted your dispatch request.</p><Badge className="request-id">{submittedRequest ? `REQUEST #${submittedRequest.id}` : "REQUEST RECEIVED"}</Badge></div>
     <Card className="eta-card"><div className="mini-map"><img src="/images/naga-map.png" alt="Map showing the truck's route" /><span className="mini-truck"><Truck size={14} /></span></div><div className="eta-copy"><StatusPill>Driver en route</StatusPill><strong>6 min</strong><small>Expected by 8:02 AM</small><span>Joel Ramos • ABG 7421</span></div></Card>
     <ProgressTrack />
     <div className="alert-row confirmation-alert"><span><Bell size={17} /></span><div><strong>Pickup alerts are on</strong><small>We'll notify you at arrival and completion.</small></div><span className="switch-static"><span /></span></div>
@@ -202,6 +218,10 @@ export default function App() {
   const [pickupActive, setPickupActive] = useState(false);
   const [message, setMessage] = useState("");
   const [sentMessage, setSentMessage] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState("");
+  const [submitState, setSubmitState] = useState({ loading: false, error: "" });
+  const [submittedRequest, setSubmittedRequest] = useState(null);
 
   const navigate = (target) => {
     if (target === "confirmed") setPickupActive(true);
@@ -213,6 +233,44 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  const handlePhotoSelected = (file) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setSubmitState({ loading: false, error: "Choose an image file." });
+      return;
+    }
+    setSelectedImage(file);
+    setImagePreview(URL.createObjectURL(file));
+    setSubmitState({ loading: false, error: "" });
+    navigate("analysis");
+  };
+
+  const submitRequest = async () => {
+    if (!selectedImage) {
+      setSubmitState({ loading: false, error: "Choose a photo first." });
+      return;
+    }
+    setSubmitState({ loading: true, error: "" });
+    try {
+      const request = await submitCollectionRequest({
+        image: selectedImage,
+        residentName: "Alf M.",
+        barangay: "Concepcion Pequeña",
+        address: "Concepcion Pequeña, Naga City",
+        wasteType: "Mixed dry waste",
+        estimatedVolume: "0.42 m³",
+        estimatedWeight: "31 kg",
+        confidence: "94%",
+        truckId: "NCG-214",
+      });
+      setSubmittedRequest(request);
+      setSubmitState({ loading: false, error: "" });
+      navigate("confirmed");
+    } catch (error) {
+      setSubmitState({ loading: false, error: error.message || "Could not send the request." });
+    }
+  };
+
   const notificationSheet = <Sheet open={sheet === "notifications"} onOpenChange={(open) => !open && setSheet(null)}><SheetContent><SheetTitle>Pickup notifications</SheetTitle><SheetDescription>Stay up to date with collections around your home.</SheetDescription><div className="sheet-notice"><span className="quick-icon green"><Truck size={18} /></span><span><strong>{pickupActive ? "Truck NCG-214 is on the way" : "Your next collection is tomorrow"}</strong><small>{pickupActive ? "Estimated arrival in 6 minutes." : "Biodegradable • 6:30–8:00 AM"}</small></span></div><Button className="w-full" onClick={() => setSheet(null)}>Done</Button></SheetContent></Sheet>;
   const messageSheet = <Sheet open={sheet === "message"} onOpenChange={(open) => !open && setSheet(null)}><SheetContent><SheetTitle>Message your driver</SheetTitle><SheetDescription>Truck NCG-214 • Joel B. Ramos</SheetDescription><div className="chat-bubble">{sentMessage ? message : "Good morning! I'm on my way to Zone 3. See you in about 6 minutes."}</div><form className="message-form" onSubmit={(event) => { event.preventDefault(); if (message.trim()) setSentMessage(true); }}><Input value={message} onChange={(event) => setMessage(event.target.value)} placeholder="Write a message..." aria-label="Message to driver" /><Button size="icon" aria-label="Send message"><Send size={16} /></Button></form></SheetContent></Sheet>;
 
@@ -221,9 +279,9 @@ export default function App() {
   let content;
   if (view === "home") content = <HomeScreen onNavigate={navigate} onOpenNotifications={() => setSheet("notifications")} pickupActive={pickupActive} />;
   else if (view === "map") content = <MapScreen onNavigate={navigate} />;
-  else if (view === "scan") content = <ScanScreen onNavigate={navigate} />;
-  else if (view === "analysis") content = <AnalysisScreen onNavigate={navigate} />;
-  else if (view === "confirmed") content = <ConfirmationScreen onNavigate={navigate} pickupActive={pickupActive} />;
+  else if (view === "scan") content = <ScanScreen onNavigate={navigate} onPhotoSelected={handlePhotoSelected} />;
+  else if (view === "analysis") content = <AnalysisScreen onNavigate={navigate} imagePreview={imagePreview} submitState={submitState} onSubmit={submitRequest} />;
+  else if (view === "confirmed") content = <ConfirmationScreen onNavigate={navigate} pickupActive={pickupActive} submittedRequest={submittedRequest} />;
   else if (view === "truck") content = <TruckDetailScreen onNavigate={navigate} onMessage={() => setSheet("message")} />;
   else if (view === "trucks") content = <TrucksScreen onNavigate={navigate} />;
   else if (view === "activity") content = <ActivityScreen onNavigate={navigate} pickupActive={pickupActive} />;

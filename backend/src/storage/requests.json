@@ -1,0 +1,32 @@
+[
+  {
+    "id": "WWN-2026-228A1CDD",
+    "residentName": "Alf M.",
+    "barangay": "Concepcion Pequeña",
+    "address": "Concepcion Pequeña, Naga City",
+    "wasteType": "Mixed dry waste",
+    "estimatedVolume": "0.42 m³",
+    "estimatedWeight": "31 kg",
+    "confidence": "94%",
+    "truckId": "NCG-214",
+    "status": "Received",
+    "imageUrl": "/uploads/1795788876658-0c2e2ae2-540c-4447-b54e-8dc593bffa97.png",
+    "imageName": "pasta.png",
+    "createdAt": "2026-11-27T14:14:36.663Z"
+  },
+  {
+    "id": "WWN-2026-0DB9CDF6",
+    "residentName": "Alf M.",
+    "barangay": "Concepcion Pequeña",
+    "address": "Concepcion Pequeña, Naga City",
+    "wasteType": "Mixed dry waste",
+    "estimatedVolume": "0.42 m³",
+    "estimatedWeight": "31 kg",
+    "confidence": "94%",
+    "truckId": "NCG-214",
+    "status": "Received",
+    "imageUrl": "/uploads/1795788501494-670237fc-862e-44c5-aff7-d2129be5c29a.jpg",
+    "imageName": "240_F_893391529_Jjgk4DUY4qHOEtGqZxPuyVnl9ewi1TaJ.jpg",
+    "createdAt": "2026-11-27T14:08:21.497Z"
+  }
+]

@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { getCollectionRequests, getRequestImageUrl } from "../../lib/api";
 import {
   Activity, ArrowDownRight, ArrowRight, Bell, Check, ChevronDown, ChevronRight,
   CircleHelp, ClipboardList, Download, Leaf, MapPin, Menu, MoreHorizontal,
@@ -54,7 +55,30 @@ export default function AdminDashboard() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [reports, setReports] = useState(initialReports);
+  const [collectionRequests, setCollectionRequests] = useState([]);
+  const [requestError, setRequestError] = useState("");
   const filteredReports = useMemo(() => reports.filter((report) => `${report.id} ${report.subject} ${report.area}`.toLowerCase().includes(query.toLowerCase())), [reports, query]);
+
+  useEffect(() => {
+    let active = true;
+    const refreshRequests = async () => {
+      try {
+        const items = await getCollectionRequests();
+        if (active) {
+          setCollectionRequests(items);
+          setRequestError("");
+        }
+      } catch (error) {
+        if (active) setRequestError(error.message || "Could not load resident requests.");
+      }
+    };
+    refreshRequests();
+    const timer = window.setInterval(refreshRequests, 3000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, []);
 
   const advanceReport = (id) => setReports((current) => current.map((report) => report.id === id ? { ...report, status: report.status === "Open" ? "Assigned" : report.status === "Assigned" ? "In review" : "Resolved", tone: report.status === "Open" ? "blue" : report.status === "Assigned" ? "green" : "muted" } : report));
 
@@ -73,7 +97,23 @@ export default function AdminDashboard() {
         </section>
         <section className="admin-bottom-grid">
           <article className="admin-panel admin-fleet"><div className="admin-panel-heading"><div><h2>Live fleet</h2><p>Truck status and route progress</p></div><button className="admin-panel-link" onClick={() => setActive("Collection routes")}>View fleet <ArrowRight size={14} /></button></div><div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>VEHICLE</th><th>ASSIGNED ROUTE</th><th>PROGRESS</th><th>STATUS</th></tr></thead><tbody>{trucks.map((truck) => <tr key={truck.id}><td><span className="admin-truck"><i><Truck size={15} /></i><span><strong>{truck.id}</strong><small>{truck.driver}</small></span></span></td><td>{truck.route}</td><td><span className="admin-table-progress"><i><b style={{ width: `${truck.progress}%` }} /></i>{truck.progress ? `${truck.progress}%` : "—"}</span></td><td><span className={`admin-pill ${truck.tone}`}><i />{truck.state}</span></td></tr>)}</tbody></table></div></article>
-          <article className="admin-panel admin-reports"><div className="admin-panel-heading"><div><h2>Recent service reports</h2><p>Resident submitted requests</p></div><button className="admin-panel-link" onClick={() => setActive("Reports")}>All reports <ArrowRight size={14} /></button></div><label className="admin-search"><Search size={15} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search reports" /></label><div className="admin-report-list">{filteredReports.map((report) => <div className="admin-report" key={report.id}><span className="admin-report-pin"><MapPin size={15} /></span><span className="admin-report-copy"><strong>{report.subject}</strong><small>{report.area} · {report.time}</small><small>{report.id}</small></span><button className={`admin-pill ${report.tone} admin-report-status`} onClick={() => advanceReport(report.id)} aria-label={`Advance status for ${report.id}`}>{report.status}<ChevronDown size={12} /></button></div>)}{filteredReports.length === 0 && <p className="admin-empty">No reports match that search.</p>}</div></article>
+          <article className="admin-panel admin-reports"><div className="admin-panel-heading"><div><h2>Recent service reports</h2><p>Resident submitted requests</p></div><button className="admin-panel-link" onClick={() => setActive("Reports")}>All reports <ArrowRight size={14} /></button></div><label className="admin-search"><Search size={15} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search reports" /></label><div className="admin-report-list">
+              {requestError && <p className="admin-empty" role="status">Could not load live requests: {requestError}</p>}
+              {collectionRequests
+                .filter((request) => [request.id, request.wasteType, request.barangay, request.address].join(" ").toLowerCase().includes(query.toLowerCase()))
+                .map((request) => <div className="admin-report" key={request.id}>
+                  <span className="admin-report-pin"><MapPin size={15} /></span>
+                  <span className="admin-report-copy">
+                    <strong>{request.wasteType || "Special collection request"}</strong>
+                    <small>{request.barangay || request.address} · {new Date(request.createdAt).toLocaleString()}</small>
+                    <small>{request.id}{request.estimatedVolume ? " · " + request.estimatedVolume : ""}</small>
+                  </span>
+                  {request.imageUrl && <a href={getRequestImageUrl(request.imageUrl)} target="_blank" rel="noreferrer" aria-label={"Open photo for " + request.id}><img src={getRequestImageUrl(request.imageUrl)} alt="Resident waste submission" style={{ width: 48, height: 48, objectFit: "cover", borderRadius: 8 }} /></a>}
+                  <span className="admin-pill green admin-report-status"><i />{request.status || "Received"}</span>
+                </div>)}
+              {filteredReports.map((report) => <div className="admin-report" key={report.id}><span className="admin-report-pin"><MapPin size={15} /></span><span className="admin-report-copy"><strong>{report.subject}</strong><small>{report.area} · {report.time}</small><small>{report.id}</small></span><button className={"admin-pill " + report.tone + " admin-report-status"} onClick={() => advanceReport(report.id)} aria-label={"Advance status for " + report.id}>{report.status}<ChevronDown size={12} /></button></div>)}
+              {collectionRequests.length === 0 && filteredReports.length === 0 && !requestError && <p className="admin-empty">No reports match that search.</p>}
+            </div></article>
         </section>
         <footer className="admin-footer"><span>Waste Wise Naga <i>·</i> City Operations Dashboard</span><span>Last updated just now <i>·</i> <button><Download size={13} /> Export report</button></span></footer>
       </div>
